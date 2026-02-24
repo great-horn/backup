@@ -6,6 +6,8 @@ Built with Flask, Vue.js 3, SQLite, and Socket.IO.
 
 ![Dashboard](screenshots/dashboard.png)
 
+![Analytics](screenshots/analytics.png)
+
 ## Features
 
 - **Web dashboard** with real-time status via WebSocket
@@ -27,21 +29,163 @@ Built with Flask, Vue.js 3, SQLite, and Socket.IO.
 git clone https://github.com/great-horn/backup.git
 cd backup
 cp .env.example .env
-# Edit .env with your rsync host, notifications, etc.
-echo "your_rsync_password" > rsync.secret
-chmod 600 rsync.secret
-docker-compose -f docker-compose.standalone.yml up -d --build
+docker compose -f docker-compose.standalone.yml up -d --build
 ```
 
 Open [http://localhost:9895](http://localhost:9895) in your browser.
 
-Two demo jobs (disabled) are created on first run. Configure your own jobs via Settings.
+Two demo jobs (disabled) are created on first run. Follow the guide below to configure your first real backup job.
+
+## Setting Up a Backup Job
+
+### 1. Mount your source directories
+
+Edit `docker-compose.standalone.yml` to expose the directories you want to back up:
+
+```yaml
+volumes:
+  - ./data:/app/logs
+  - /path/to/myapp:/data/myapp:ro        # your source directory
+  - /path/to/another:/data/another:ro     # add as many as needed
+  - /tmp/restore:/tmp/restore
+```
+
+> Directories are mounted under `/data/` inside the container. Use **read-only** (`:ro`) unless you need restore capability.
+
+### 2. Choose a backend
+
+#### Option A: rsync daemon (default)
+
+For backing up to a server running rsyncd (port 873):
+
+```bash
+# Create the password file
+echo "your_rsync_password" > rsync.secret
+chmod 600 rsync.secret
+```
+
+Uncomment the rsync volume in `docker-compose.standalone.yml`:
+```yaml
+- ./rsync.secret:/app/rsync.secret:ro
+```
+
+Configure the rsync host in `.env`:
+```
+RSYNC_HOST=192.168.0.100
+RSYNC_USER=backup
+RSYNC_MODULE=backup
+```
+
+#### Option B: rclone (SMB, S3, SFTP, GDrive, WebDAV, ...)
+
+rclone is a universal backend that supports [40+ storage providers](https://rclone.org/overview/).
+
+**Step 1** — Get an obscured password (needed for most remotes):
+```bash
+docker exec backup rclone obscure 'yourpassword'
+# outputs something like: jJ89bJX_FgueJ8rC0Yjom7VsnQocRqq...
+```
+
+**Step 2** — Create `rclone.conf` in the project directory:
+
+<details>
+<summary><b>SMB / CIFS</b> (NAS, Windows share)</summary>
+
+```ini
+[mynas]
+type = smb
+host = 192.168.0.100
+user = myuser
+pass = <obscured_password>
+```
+</details>
+
+<details>
+<summary><b>SFTP</b></summary>
+
+```ini
+[myserver]
+type = sftp
+host = 192.168.0.100
+user = myuser
+pass = <obscured_password>
+```
+</details>
+
+<details>
+<summary><b>S3</b> (AWS, MinIO, Backblaze B2)</summary>
+
+```ini
+[mys3]
+type = s3
+provider = AWS
+access_key_id = AKIAXXXXXXXXXXXXXXXX
+secret_access_key = <obscured_key>
+region = eu-west-1
+```
+</details>
+
+<details>
+<summary><b>Google Drive</b></summary>
+
+```ini
+[gdrive]
+type = drive
+client_id = your_client_id
+client_secret = <obscured_secret>
+token = {"access_token":"...","token_type":"Bearer","refresh_token":"...","expiry":"..."}
+```
+
+> Run `rclone config` on your local machine first to generate the token via OAuth flow, then copy the resulting config.
+</details>
+
+See the full list of providers at [rclone.org/overview](https://rclone.org/overview/).
+
+**Step 3** — Secure the file and mount it:
+
+```bash
+chmod 600 rclone.conf
+```
+
+Uncomment the rclone volume in `docker-compose.standalone.yml`:
+```yaml
+- ./rclone.conf:/app/rclone.conf:ro
+```
+
+**Step 4** — Verify the connection:
+
+```bash
+docker compose -f docker-compose.standalone.yml up -d
+docker exec backup rclone --config /app/rclone.conf lsd mynas:
+```
+
+You should see the available shares or buckets listed.
+
+### 3. Restart and create the job
+
+```bash
+docker compose -f docker-compose.standalone.yml up -d
+```
+
+Open the web UI → **Settings** → **New Job** and fill in:
+
+| Field | Example |
+|-------|---------|
+| Name | `myapp` |
+| Source path | `/data/myapp` |
+| Destination path | `/backups/myapp` (rsync) or `ShareName/path` (rclone) |
+| Mode | Compression (tar+zstd) or Direct (rsync mirror) |
+| Backend | rsync or rclone |
+| Remote name | *(rclone only)* `mynas` — must match the `[name]` in rclone.conf |
+| Remote path | *(rclone only)* `ShareName/backups/myapp` |
+| Retention | Number of versions to keep (default: 7) |
+| Schedule | Cron expression, e.g. `0 3 * * *` for 3 AM daily |
+
+Click **Save**, then hit the play button to run a test backup.
 
 ## Configuration
 
 All settings are managed via environment variables. See [.env.example](.env.example) for the full list.
-
-Key variables:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -50,9 +194,9 @@ Key variables:
 | `RSYNC_HOST` | rsync daemon host | `192.168.0.100` |
 | `RSYNC_USER` | rsync daemon user | `backup` |
 | `RSYNC_MODULE` | rsync module name | `backup` |
-| `TELEGRAM_BOT_TOKEN` | Telegram bot token | (disabled) |
-| `TELEGRAM_CHAT_ID` | Telegram chat ID | (disabled) |
-| `SMTP_HOST` | SMTP server for email reports | (disabled) |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token | *(disabled)* |
+| `TELEGRAM_CHAT_ID` | Telegram chat ID | *(disabled)* |
+| `SMTP_HOST` | SMTP server for email reports | *(disabled)* |
 
 ## Architecture
 
@@ -70,6 +214,7 @@ backup/
 │   ├── notifications.py# Telegram, WhatsApp, Email
 │   ├── utils.py        # Shared utilities
 │   └── static/         # Vue.js 3 SPA frontend
+├── shared/             # Shared CSS/JS (themes, layout, components)
 └── Dockerfile
 ```
 
@@ -78,21 +223,11 @@ backup/
 - backup.sh handles execution with retry logic (3 attempts, 30s delay)
 - Vue.js 3 SPA with Socket.IO for real-time updates
 
-## Backends
-
-### rsync (default)
-
-Uses rsync daemon (rsyncd) on port 873 for writes. Requires a password file mounted at `/app/rsync.secret`.
-
-### rclone
-
-Universal backend supporting S3, Google Drive, WebDAV, SMB, SFTP, and more. Mount your `rclone.conf` at `/app/rclone.conf` and configure the remote name and path per job in Settings.
-
 ## Backup Modes
 
 | Mode | Description |
 |------|-------------|
-| **Compression** | rsync to temp + tar+zstd + push archive (default) |
+| **Compression** | rsync to temp → tar+zstd → push archive (default) |
 | **Direct** | rsync mirror with `--delete` (for large media) |
 
 ## API Endpoints
