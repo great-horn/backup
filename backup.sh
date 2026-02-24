@@ -7,6 +7,7 @@ RSYNC_HOST="${RSYNC_HOST:-192.168.0.100}"
 RSYNC_USER="${RSYNC_USER:-backup}"
 RSYNC_MODULE="${RSYNC_MODULE:-backup}"
 RSYNC_PASSWORD_FILE="${RSYNC_PASSWORD_FILE:-/app/rsync.secret}"
+export RCLONE_CONFIG="${RCLONE_CONFIG:-/app/rclone.conf}"
 RSYNC_BASE="rsync://${RSYNC_USER}@${RSYNC_HOST}/${RSYNC_MODULE}"
 
 LOG_DIR=/app/logs
@@ -140,7 +141,7 @@ run_backup() {
         local rclone_dest="${rclone_remote}:${rclone_path}"
         echo "☁️ Backend rclone: $rclone_dest" | tee -a "$LOG_FILE"
 
-        if ! rclone lsd "$rclone_remote:" --max-depth 0 > /dev/null 2>&1; then
+        if ! timeout 15 rclone lsf "$rclone_remote:" --max-depth 1 --dirs-only -q 2>/dev/null | head -1 > /dev/null; then
             echo "❌ rclone remote inaccessible ($rclone_remote)" | tee -a "$LOG_FILE"
             ERRORS=$((ERRORS+1))
             return 1
