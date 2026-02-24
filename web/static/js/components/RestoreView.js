@@ -1,6 +1,6 @@
 export default {
     props: ['theme', 'restoreProgress'],
-    inject: ['t'],
+    inject: ['t', 'lang'],
     data() {
         return {
             searchQuery: '',
@@ -106,25 +106,27 @@ export default {
                 backup_file: result.backup_file,
                 files: [result.file_path]
             };
-            this.restoreModalInfo = `Restaurer "${result.file_path}" depuis ${result.display_name}`;
+            this.restoreModalInfo = `${this.t('restore.restore')} "${result.file_path}" — ${result.display_name}`;
             this.showRestoreModal = true;
         },
         restoreBackup(job, backup) {
+            const dm = this.t('restore.direct_mirror');
             this.pendingRestore = {
                 job_name: job.job_name,
-                backup_file: backup.filename !== '(miroir direct)' ? backup.filename : '',
+                backup_file: backup.filename !== dm ? backup.filename : '',
                 files: []
             };
-            this.restoreModalInfo = `Restaurer tout le backup "${backup.filename}" de ${job.display_name}`;
+            this.restoreModalInfo = `${this.t('restore.restore')} "${backup.filename}" — ${job.display_name}`;
             this.showRestoreModal = true;
         },
         restoreSelected() {
+            const dm = this.t('restore.direct_mirror');
             this.pendingRestore = {
                 job_name: this.browseJobConfig.job_name,
-                backup_file: this.browseFile !== '(miroir direct)' ? this.browseFile : '',
+                backup_file: this.browseFile !== dm ? this.browseFile : '',
                 files: [...this.selectedFiles]
             };
-            this.restoreModalInfo = `Restaurer ${this.selectedFiles.length} fichier(s) depuis ${this.browseJobName}`;
+            this.restoreModalInfo = `${this.t('restore.restore')} ${this.selectedFiles.length} ${this.t('restore.file')} — ${this.browseJobName}`;
             this.showRestoreModal = true;
         },
         async confirmRestore() {
@@ -169,7 +171,8 @@ export default {
         formatDate(dateStr) {
             if (!dateStr) return '--';
             try {
-                return new Date(dateStr).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                const locales = { fr: 'fr-FR', en: 'en-GB', de: 'de-DE', it: 'it-IT', es: 'es-ES', pt: 'pt-PT' };
+                return new Date(dateStr).toLocaleString(locales[this.lang] || 'en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
             } catch { return '--'; }
         },
         formatSize(bytes) {
@@ -211,7 +214,7 @@ export default {
 
             <!-- Search Results -->
             <div v-if="searchResults.length > 0" class="mt-4 max-h-80 overflow-y-auto">
-                <div class="text-sm backup-text-muted mb-2">{{ searchResults.length }} resultat(s)</div>
+                <div class="text-sm backup-text-muted mb-2">{{ searchResults.length }} {{ t('restore.file') }}</div>
                 <div v-for="result in searchResults" :key="result.file_path + result.job_name"
                      class="flex items-center justify-between backup-card rounded-lg px-4 py-2.5 mb-2 backup-card-interactive">
                     <div class="flex-1 min-w-0">
@@ -247,7 +250,7 @@ export default {
                                 :class="job.mode === 'compression' ? 'backup-tag-blue' : 'backup-tag-green'">
                                 {{ job.mode }}
                             </span>
-                            <span class="text-xs backup-text-muted">{{ job.backups.length }} backup(s)</span>
+                            <span class="text-xs backup-text-muted">{{ job.backups.length }} {{ t('restore.archives') }}</span>
                         </div>
                         <svg :class="{'rotate-180': job.open}" class="w-5 h-5 backup-text-muted transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
                     </button>
@@ -260,7 +263,7 @@ export default {
                                 <div class="text-sm font-medium backup-text">{{ backup.filename }}</div>
                                 <div class="text-xs backup-text-muted">
                                     {{ backup.size_mb }} MB - {{ formatDate(backup.date) }}
-                                    <span v-if="backup.file_count"> - {{ backup.file_count }} fichiers</span>
+                                    <span v-if="backup.file_count"> - {{ backup.file_count }} {{ t('restore.file') }}</span>
                                 </div>
                             </div>
                             <div class="flex gap-2">

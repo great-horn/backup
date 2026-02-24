@@ -1,6 +1,6 @@
 export default {
     props: ['theme'],
-    inject: ['t'],
+    inject: ['t', 'lang'],
     data() {
         return {
             jobs: [],
@@ -9,7 +9,7 @@ export default {
             editingJob: null,
             form: {
                 job_name: '', display_name: '', source_path: '', dest_path: '',
-                mode: 'compression', run_group: 'medium', excludes_text: '', icon_url: '',
+                mode: 'compression', excludes_text: '', icon_url: '',
                 retention_count: 7, backend_type: 'rsync', rclone_remote: '', rclone_path: ''
             }
         };
@@ -37,7 +37,6 @@ export default {
                 source_path: job.source_path,
                 dest_path: job.dest_path,
                 mode: job.mode,
-                run_group: job.run_group,
                 excludes_text: (job.excludes || []).join('\n'),
                 icon_url: job.icon_url || '',
                 retention_count: job.retention_count || 7,
@@ -49,7 +48,7 @@ export default {
         closeModal() {
             this.showCreateModal = false;
             this.editingJob = null;
-            this.form = { job_name: '', display_name: '', source_path: '', dest_path: '', mode: 'compression', run_group: 'medium', excludes_text: '', icon_url: '', retention_count: 7, backend_type: 'rsync', rclone_remote: '', rclone_path: '' };
+            this.form = { job_name: '', display_name: '', source_path: '', dest_path: '', mode: 'compression', excludes_text: '', icon_url: '', retention_count: 7, backend_type: 'rsync', rclone_remote: '', rclone_path: '' };
         },
         async saveJob() {
             const excludes = this.form.excludes_text.split('\n').map(s => s.trim()).filter(s => s);
@@ -133,31 +132,13 @@ export default {
         setCron(job, cron) {
             this.updateCron(job, cron);
         },
-        async updateGroup(job, group) {
-            try {
-                await fetch(`/api/jobs/${job.job_name}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ run_group: group })
-                });
-                await this.loadJobs();
-            } catch (e) {
-                console.error(e);
-            }
-        },
         formatDate(dateStr) {
             if (!dateStr) return '--';
             try {
-                return new Date(dateStr).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                const locales = { fr: 'fr-FR', en: 'en-GB', de: 'de-DE', it: 'it-IT', es: 'es-ES', pt: 'pt-PT' };
+                return new Date(dateStr).toLocaleString(locales[this.lang] || 'en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
             } catch { return '--'; }
         },
-        groupJobs(group) {
-            return this.jobs.filter(j => j.run_group === group);
-        },
-        groupDescription(group) {
-            const descs = { light: 'Parallele (< 1 min)', medium: 'Parallele (1-2 min)', heavy: 'Sequentiel (> 2 min)' };
-            return descs[group] || '';
-        }
     },
     template: `
     <div>
@@ -212,20 +193,19 @@ export default {
 
                     <div class="space-y-1.5 text-sm mb-3 min-w-0">
                         <div class="flex items-center gap-2 backup-text-muted min-w-0">
-                            <span class="font-medium w-14 shrink-0">Source:</span>
+                            <span class="font-medium w-14 shrink-0">{{ t('settings.source') }}:</span>
                             <span class="truncate font-mono text-xs block">{{ job.source_path }}</span>
                         </div>
                         <div class="flex items-center gap-2 backup-text-muted min-w-0">
-                            <span class="font-medium w-14 shrink-0">Dest:</span>
+                            <span class="font-medium w-14 shrink-0">{{ t('settings.dest') }}:</span>
                             <span class="truncate font-mono text-xs block">{{ job.dest_path }}</span>
                         </div>
                         <div class="flex items-center gap-2 flex-wrap">
-                            <span class="font-medium w-14 shrink-0 backup-text-muted">Mode:</span>
+                            <span class="font-medium w-14 shrink-0 backup-text-muted">{{ t('settings.mode') }}:</span>
                             <span class="backup-tag"
                                 :class="job.mode === 'compression' ? 'backup-tag-blue' : 'backup-tag-green'">
                                 {{ job.mode }}
                             </span>
-                            <span class="backup-tag backup-tag-gray">{{ job.run_group }}</span>
                         </div>
                     </div>
 
@@ -235,10 +215,10 @@ export default {
                             <span v-else>--</span>
                         </div>
                         <div class="flex gap-2 shrink-0">
-                            <button @click="editJob(job)" style="color: var(--accent-blue);" class="p-1.5 rounded transition-colors" title="Modifier">
+                            <button @click="editJob(job)" style="color: var(--accent-blue);" class="p-1.5 rounded transition-colors" :title="t('settings.edit')">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                             </button>
-                            <button @click="deleteJob(job.job_name)" class="text-red-500 hover:text-red-600 p-1.5 rounded transition-colors" title="Supprimer">
+                            <button @click="deleteJob(job.job_name)" class="text-red-500 hover:text-red-600 p-1.5 rounded transition-colors" :title="t('settings.delete')">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                             </button>
                         </div>
@@ -251,7 +231,7 @@ export default {
         <div class="backup-section shadow-sm p-4 sm:p-6 mb-6">
             <h2 class="text-xl font-bold backup-text mb-5 flex items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--accent-blue);"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                Schedules
+                {{ t('settings.schedules') }}
             </h2>
 
             <!-- Desktop: Table -->
@@ -259,11 +239,11 @@ export default {
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="backup-border" style="border-bottom-width: 1px;">
-                            <th class="text-left py-3 px-4 font-semibold backup-text-muted uppercase text-xs tracking-wide">Job</th>
-                            <th class="text-left py-3 px-4 font-semibold backup-text-muted uppercase text-xs tracking-wide">Actif</th>
-                            <th class="text-left py-3 px-4 font-semibold backup-text-muted uppercase text-xs tracking-wide">Cron</th>
-                            <th class="text-left py-3 px-4 font-semibold backup-text-muted uppercase text-xs tracking-wide">Prochaine execution</th>
-                            <th class="text-left py-3 px-4 font-semibold backup-text-muted uppercase text-xs tracking-wide">Presets</th>
+                            <th class="text-left py-3 px-4 font-semibold backup-text-muted uppercase text-xs tracking-wide">{{ t('settings.col_job') }}</th>
+                            <th class="text-left py-3 px-4 font-semibold backup-text-muted uppercase text-xs tracking-wide">{{ t('settings.col_active') }}</th>
+                            <th class="text-left py-3 px-4 font-semibold backup-text-muted uppercase text-xs tracking-wide">{{ t('settings.col_cron') }}</th>
+                            <th class="text-left py-3 px-4 font-semibold backup-text-muted uppercase text-xs tracking-wide">{{ t('settings.col_next_run') }}</th>
+                            <th class="text-left py-3 px-4 font-semibold backup-text-muted uppercase text-xs tracking-wide">{{ t('settings.col_presets') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -289,9 +269,9 @@ export default {
                             <td class="py-3 px-4 text-xs backup-text-muted">{{ job.next_run ? formatDate(job.next_run) : '--' }}</td>
                             <td class="py-3 px-4">
                                 <div class="flex gap-1.5">
-                                    <button @click="setCron(job, '0 4 * * *')" class="backup-btn-small">4h/jour</button>
-                                    <button @click="setCron(job, '0 3 * * 1-5')" class="backup-btn-small">3h L-V</button>
-                                    <button @click="setCron(job, '0 2 * * 0')" class="backup-btn-small">2h Dim</button>
+                                    <button @click="setCron(job, '0 4 * * *')" class="backup-btn-small">{{ t('settings.preset_daily') }}</button>
+                                    <button @click="setCron(job, '0 3 * * 1-5')" class="backup-btn-small">{{ t('settings.preset_weekdays') }}</button>
+                                    <button @click="setCron(job, '0 2 * * 0')" class="backup-btn-small">{{ t('settings.preset_sunday') }}</button>
                                 </div>
                             </td>
                         </tr>
@@ -314,45 +294,19 @@ export default {
                         </label>
                     </div>
                     <div class="flex items-center gap-2 mb-2">
-                        <span class="text-xs backup-text-muted shrink-0 w-10">Cron:</span>
+                        <span class="text-xs backup-text-muted shrink-0 w-10">{{ t('settings.col_cron') }}:</span>
                         <input type="text" :value="job.schedule_cron" @blur="updateCron(job, $event.target.value)"
                             class="backup-input rounded px-2.5 py-1 font-mono flex-1 min-w-0"
                             placeholder="0 4 * * *">
                     </div>
                     <div class="flex items-center gap-2 mb-3">
-                        <span class="text-xs backup-text-muted shrink-0 w-10">Next:</span>
+                        <span class="text-xs backup-text-muted shrink-0 w-10">{{ t('settings.next') }}:</span>
                         <span class="text-xs backup-text-muted">{{ job.next_run ? formatDate(job.next_run) : '--' }}</span>
                     </div>
                     <div class="flex gap-1.5 flex-wrap">
-                        <button @click="setCron(job, '0 4 * * *')" class="backup-btn-small px-2.5 py-1">4h/jour</button>
-                        <button @click="setCron(job, '0 3 * * 1-5')" class="backup-btn-small px-2.5 py-1">3h L-V</button>
-                        <button @click="setCron(job, '0 2 * * 0')" class="backup-btn-small px-2.5 py-1">2h Dim</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Section: Orchestration -->
-        <div class="backup-section shadow-sm p-4 sm:p-6">
-            <h2 class="text-xl font-bold backup-text mb-5 flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--accent-blue);"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
-                Orchestration (groupes)
-            </h2>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                <div v-for="group in ['light', 'medium', 'heavy']" :key="group"
-                     class="backup-card rounded-xl p-4">
-                    <h3 class="font-semibold backup-text mb-1 capitalize">{{ group }}</h3>
-                    <p class="text-xs backup-text-muted mb-3">{{ groupDescription(group) }}</p>
-                    <div class="space-y-2">
-                        <div v-for="job in groupJobs(group)" :key="'orch-' + job.job_name"
-                             class="flex items-center justify-between backup-section rounded-lg px-3 py-2 backup-border" style="border-width: 1px;">
-                            <span class="text-sm backup-text">{{ job.display_name }}</span>
-                            <select @change="updateGroup(job, $event.target.value)" class="bg-transparent border-0 text-xs backup-text-muted focus:outline-none cursor-pointer">
-                                <option v-for="g in ['light', 'medium', 'heavy']" :key="g" :value="g" :selected="g === job.run_group">{{ g }}</option>
-                            </select>
-                        </div>
-                        <div v-if="groupJobs(group).length === 0" class="text-center text-xs backup-text-muted py-2">{{ t('settings.no_jobs') }}</div>
+                        <button @click="setCron(job, '0 4 * * *')" class="backup-btn-small px-2.5 py-1">{{ t('settings.preset_daily') }}</button>
+                        <button @click="setCron(job, '0 3 * * 1-5')" class="backup-btn-small px-2.5 py-1">{{ t('settings.preset_weekdays') }}</button>
+                        <button @click="setCron(job, '0 2 * * 0')" class="backup-btn-small px-2.5 py-1">{{ t('settings.preset_sunday') }}</button>
                     </div>
                 </div>
             </div>
@@ -384,22 +338,12 @@ export default {
                         <label class="block text-sm font-medium backup-text-muted mb-1">{{ t('settings.dest_path') }}</label>
                         <input type="text" v-model="form.dest_path" class="w-full backup-input rounded-lg px-3 sm:px-4 py-2.5 font-mono" placeholder="/mnt/data/...">
                     </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium backup-text-muted mb-1">{{ t('settings.mode') }}</label>
-                            <select v-model="form.mode" class="w-full backup-input rounded-lg px-3 sm:px-4 py-2.5">
-                                <option value="compression">{{ t('settings.compression') }} (zstd)</option>
-                                <option value="direct">{{ t('settings.direct') }}</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium backup-text-muted mb-1">{{ t('settings.run_group') }}</label>
-                            <select v-model="form.run_group" class="w-full backup-input rounded-lg px-3 sm:px-4 py-2.5">
-                                <option value="light">{{ t('settings.light') }}</option>
-                                <option value="medium">{{ t('settings.medium') }}</option>
-                                <option value="heavy">{{ t('settings.heavy') }}</option>
-                            </select>
-                        </div>
+                    <div>
+                        <label class="block text-sm font-medium backup-text-muted mb-1">{{ t('settings.mode') }}</label>
+                        <select v-model="form.mode" class="w-full backup-input rounded-lg px-3 sm:px-4 py-2.5">
+                            <option value="compression">{{ t('settings.compression') }} (zstd)</option>
+                            <option value="direct">{{ t('settings.direct') }}</option>
+                        </select>
                     </div>
                     <div>
                         <label class="block text-sm font-medium backup-text-muted mb-1">{{ t('settings.excludes') }} ({{ t('settings.excludes_hint') }})</label>

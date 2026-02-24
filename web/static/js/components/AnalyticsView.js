@@ -1,6 +1,6 @@
 export default {
     props: ['theme'],
-    inject: ['t'],
+    inject: ['t', 'lang'],
     data() {
         return {
             statsData: null,
@@ -103,7 +103,7 @@ export default {
             this.chart_timeline = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: days.map(d => new Date(d).toLocaleDateString('fr-FR', {month:'short',day:'numeric'})),
+                    labels: days.map(d => { const locales = { fr: 'fr-FR', en: 'en-GB', de: 'de-DE', it: 'it-IT', es: 'es-ES', pt: 'pt-PT' }; return new Date(d).toLocaleDateString(locales[this.lang] || 'en-GB', {month:'short',day:'numeric'}); }),
                     datasets: [
                         { label: this.t('analytics.total'), data: daily.map(d => d.count), borderColor: c.primary, backgroundColor: c.primary+'20', tension: 0.4, fill: true },
                         { label: this.t('analytics.succeeded'), data: daily.map(d => d.success), borderColor: c.success, backgroundColor: c.success+'20', tension: 0.4 }
@@ -281,7 +281,8 @@ export default {
             Object.entries(stats).sort(([,a],[,b]) => (b.lastRun||'').localeCompare(a.lastRun||'')).forEach(([svc, st]) => {
                 const sr = st.count > 0 ? (st.success/st.count*100) : 0;
                 const ad = st.count > 0 ? (st.totalDur/st.count) : 0;
-                const ld = st.lastRun ? new Date(st.lastRun).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '-';
+                const locales = { fr: 'fr-FR', en: 'en-GB', de: 'de-DE', it: 'it-IT', es: 'es-ES', pt: 'pt-PT' };
+                const ld = st.lastRun ? new Date(st.lastRun).toLocaleDateString(locales[this.lang] || 'en-GB',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '-';
                 const col = colors[ci++ % colors.length];
                 html += `<div class="backup-table-row grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1.5fr] gap-4 px-6 py-4 items-center">
                     <div class="flex items-center gap-3 font-medium backup-text"><div class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background-color:${col}"></div><span class="truncate">${svc}</span></div>

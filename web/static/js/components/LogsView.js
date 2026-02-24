@@ -1,6 +1,6 @@
 export default {
     props: ['theme'],
-    inject: ['t'],
+    inject: ['t', 'lang'],
     data() {
         return {
             allLogs: [],
@@ -60,14 +60,15 @@ export default {
             try {
                 const res = await fetch(`/log/${filename}`);
                 const data = await res.json();
-                this.logDetailContent = data.content || data.error || 'Log non trouve';
+                this.logDetailContent = data.content || data.error || this.t('logs.no_logs');
             } catch (e) {
-                this.logDetailContent = 'Erreur: ' + e.message;
+                this.logDetailContent = this.t('common.error') + ': ' + e.message;
             }
         },
         formatDate(dateStr) {
             try {
-                return new Date(dateStr).toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+                const locales = { fr: 'fr-FR', en: 'en-GB', de: 'de-DE', it: 'it-IT', es: 'es-ES', pt: 'pt-PT' };
+                return new Date(dateStr).toLocaleString(locales[this.lang] || 'en-GB', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
             } catch { return '--'; }
         },
         getServiceIcon(name) {
@@ -127,21 +128,21 @@ export default {
                     <input v-model="searchText" type="text" :placeholder="t('logs.search')" class="backup-input px-4 py-2.5">
                 </div>
                 <div class="flex flex-col gap-2">
-                    <label class="text-sm font-medium backup-text-muted">Status</label>
+                    <label class="text-sm font-medium backup-text-muted">{{ t('logs.status') }}</label>
                     <select v-model="statusFilter" class="backup-input px-4 py-2.5">
                         <option value="">{{ t('logs.filter_all') }}</option>
                         <option value="success">{{ t('logs.filter_success') }}</option>
-                        <option value="warning">Warning</option>
+                        <option value="warning">{{ t('logs.warning') }}</option>
                         <option value="error">{{ t('logs.filter_error') }}</option>
                     </select>
                 </div>
                 <div class="flex flex-col gap-2">
-                    <label class="text-sm font-medium backup-text-muted">{{ t('settings.schedule') }}</label>
+                    <label class="text-sm font-medium backup-text-muted">{{ t('logs.period') }}</label>
                     <select v-model="periodFilter" class="backup-input px-4 py-2.5">
                         <option value="">{{ t('logs.filter_all') }}</option>
-                        <option value="today">{{ t('analytics.days_7') }}</option>
-                        <option value="week">{{ t('analytics.days_30') }}</option>
-                        <option value="month">{{ t('analytics.days_90') }}</option>
+                        <option value="today">{{ t('logs.today') }}</option>
+                        <option value="week">{{ t('logs.this_week') }}</option>
+                        <option value="month">{{ t('logs.this_month') }}</option>
                     </select>
                 </div>
             </div>

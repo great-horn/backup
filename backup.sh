@@ -2,7 +2,7 @@
 
 set -e
 
-# Variables rsync daemon (NAS via rsyncd port 873)
+# rsync daemon variables (NAS via rsyncd port 873)
 RSYNC_HOST="${RSYNC_HOST:-192.168.0.100}"
 RSYNC_USER="${RSYNC_USER:-backup}"
 RSYNC_MODULE="${RSYNC_MODULE:-backup}"
@@ -25,66 +25,66 @@ DB_PATH="$LOG_DIR/backup_stats.db"
 mkdir -p "$LOG_DIR"
 
 start=$(date +%s)
-echo "🕘 Début du backup : $(date)" | tee -a "$LOG_FILE"
+echo "🕘 Backup started: $(date)" | tee -a "$LOG_FILE"
 echo "===============================" | tee -a "$LOG_FILE"
 
-# Fonction pour nettoyer les anciennes archives (rétention paramétrable)
+# Cleanup old archives (configurable retention)
 cleanup_old_archives() {
     local dest_dir="$1"
     local backup_name="$2"
     local retention="${3:-7}"
 
     if [ -d "$dest_dir" ]; then
-        echo "🧹 Nettoyage des anciennes archives pour [$backup_name] (rétention: $retention)..." | tee -a "$LOG_FILE"
+        echo "🧹 Cleaning up old archives for [$backup_name] (retention: $retention)..." | tee -a "$LOG_FILE"
 
         local archive_count=$(find "$dest_dir" -name "*.tar.zst" -type f | wc -l | tr -d ' ')
-        echo "📊 Archives actuelles pour [$backup_name]: $archive_count" | tee -a "$LOG_FILE"
+        echo "📊 Current archives for [$backup_name]: $archive_count" | tee -a "$LOG_FILE"
 
         if [ "$archive_count" -gt "$retention" ]; then
             local to_delete=$((archive_count - retention))
-            echo "🗑️ Suppression de $to_delete ancienne(s) archive(s) pour [$backup_name]..." | tee -a "$LOG_FILE"
+            echo "🗑️ Deleting $to_delete old archive(s) for [$backup_name]..." | tee -a "$LOG_FILE"
 
             find "$dest_dir" -name "*.tar.zst" -type f -printf '%T@ %p\n' | sort -n | head -n "$to_delete" | cut -d' ' -f2- | while read -r file; do
-                echo "   - Suppression de : $(basename "$file")" | tee -a "$LOG_FILE"
+                echo "   - Deleting: $(basename "$file")" | tee -a "$LOG_FILE"
                 rm -f "$file"
             done
 
             local remaining=$(find "$dest_dir" -name "*.tar.zst" -type f | wc -l | tr -d ' ')
-            echo "✅ Nettoyage terminé. Archives restantes pour [$backup_name]: $remaining" | tee -a "$LOG_FILE"
+            echo "✅ Cleanup done. Remaining archives for [$backup_name]: $remaining" | tee -a "$LOG_FILE"
         else
-            echo "✅ Pas de nettoyage nécessaire pour [$backup_name] (≤ $retention archives)" | tee -a "$LOG_FILE"
+            echo "✅ No cleanup needed for [$backup_name] (≤ $retention archives)" | tee -a "$LOG_FILE"
         fi
     fi
 }
 
-# Fonction de nettoyage rclone (pour backend rclone en mode compression)
+# Rclone cleanup (for rclone backend in compression mode)
 cleanup_old_archives_rclone() {
     local remote_path="$1"
     local backup_name="$2"
     local retention="${3:-7}"
 
-    echo "🧹 Nettoyage rclone pour [$backup_name] (rétention: $retention)..." | tee -a "$LOG_FILE"
+    echo "🧹 Rclone cleanup for [$backup_name] (retention: $retention)..." | tee -a "$LOG_FILE"
 
     local archive_count=$(rclone lsf "$remote_path" --include "*.tar.zst" 2>/dev/null | wc -l | tr -d ' ')
-    echo "📊 Archives actuelles pour [$backup_name]: $archive_count" | tee -a "$LOG_FILE"
+    echo "📊 Current archives for [$backup_name]: $archive_count" | tee -a "$LOG_FILE"
 
     if [ "$archive_count" -gt "$retention" ]; then
         local to_delete=$((archive_count - retention))
-        echo "🗑️ Suppression de $to_delete ancienne(s) archive(s) pour [$backup_name]..." | tee -a "$LOG_FILE"
+        echo "🗑️ Deleting $to_delete old archive(s) for [$backup_name]..." | tee -a "$LOG_FILE"
 
         rclone lsf "$remote_path" --include "*.tar.zst" --format "tp" 2>/dev/null | sort | head -n "$to_delete" | cut -d';' -f2 | while read -r file; do
-            echo "   - Suppression de : $file" | tee -a "$LOG_FILE"
+            echo "   - Deleting: $file" | tee -a "$LOG_FILE"
             rclone deletefile "$remote_path/$file" 2>/dev/null || true
         done
 
         local remaining=$(rclone lsf "$remote_path" --include "*.tar.zst" 2>/dev/null | wc -l | tr -d ' ')
-        echo "✅ Nettoyage terminé. Archives restantes pour [$backup_name]: $remaining" | tee -a "$LOG_FILE"
+        echo "✅ Cleanup done. Remaining archives for [$backup_name]: $remaining" | tee -a "$LOG_FILE"
     else
-        echo "✅ Pas de nettoyage nécessaire pour [$backup_name] (≤ $retention archives)" | tee -a "$LOG_FILE"
+        echo "✅ No cleanup needed for [$backup_name] (≤ $retention archives)" | tee -a "$LOG_FILE"
     fi
 }
 
-# Fonction pour créer un nom de fichier archive standardisé
+# Generate a standardized archive filename
 get_archive_name() {
     local backup_name="$1"
     local date_str=$(date +%Y-%m-%d)
@@ -96,7 +96,7 @@ get_archive_name() {
 MAX_RETRIES=3
 RETRY_DELAY=30
 
-# Convertir chemin NFS en URL rsyncd
+# Convert NFS path to rsyncd URL
 # /mnt/data/MyBackup → rsync://backup@192.168.0.100/backup/MyBackup
 to_rsync_dest() {
     local nfs_path="$1"
@@ -119,14 +119,14 @@ run_backup() {
     local rclone_path="${RCLONE_DEST_PATH:-}"
 
     echo "" | tee -a "$LOG_FILE"
-    echo "📦 Sauvegarde [$LABEL]" | tee -a "$LOG_FILE"
+    echo "📦 Backup [$LABEL]" | tee -a "$LOG_FILE"
     echo "↪️ Source: $SRC" | tee -a "$LOG_FILE"
-    echo "🎯 Cible : $DEST" | tee -a "$LOG_FILE"
-    echo "🔧 Backend: $backend | Rétention: $retention" | tee -a "$LOG_FILE"
-    [ "${#EXCLUDES[@]}" -gt 0 ] && echo "🚫 Exclusions : ${EXCLUDES[*]}" | tee -a "$LOG_FILE"
+    echo "🎯 Target: $DEST" | tee -a "$LOG_FILE"
+    echo "🔧 Backend: $backend | Retention: $retention" | tee -a "$LOG_FILE"
+    [ "${#EXCLUDES[@]}" -gt 0 ] && echo "🚫 Excludes: ${EXCLUDES[*]}" | tee -a "$LOG_FILE"
 
     if [ ! -d "$SRC" ]; then
-        echo "❌ Répertoire source $SRC n'existe pas" | tee -a "$LOG_FILE"
+        echo "❌ Source directory $SRC does not exist" | tee -a "$LOG_FILE"
         ERRORS=$((ERRORS+1))
         return 1
     fi
@@ -134,7 +134,7 @@ run_backup() {
     # --- Backend connectivity test ---
     if [ "$backend" = "rclone" ]; then
         if [ -z "$rclone_remote" ]; then
-            echo "❌ rclone remote non configuré pour [$LABEL]" | tee -a "$LOG_FILE"
+            echo "❌ rclone remote not configured for [$LABEL]" | tee -a "$LOG_FILE"
             ERRORS=$((ERRORS+1))
             return 1
         fi
@@ -142,16 +142,16 @@ run_backup() {
         echo "☁️ Backend rclone: $rclone_dest" | tee -a "$LOG_FILE"
 
         if ! timeout 15 rclone lsf "$rclone_remote:" --max-depth 1 --dirs-only -q 2>/dev/null | head -1 > /dev/null; then
-            echo "❌ rclone remote inaccessible ($rclone_remote)" | tee -a "$LOG_FILE"
+            echo "❌ rclone remote unreachable ($rclone_remote)" | tee -a "$LOG_FILE"
             ERRORS=$((ERRORS+1))
             return 1
         fi
-        echo "✅ rclone remote accessible ($rclone_remote)" | tee -a "$LOG_FILE"
+        echo "✅ rclone remote reachable ($rclone_remote)" | tee -a "$LOG_FILE"
     else
         mkdir -p "$DEST" 2>/dev/null || true
 
         if [ ! -f "$RSYNC_PASSWORD_FILE" ]; then
-            echo "❌ Fichier password rsync non trouvé ($RSYNC_PASSWORD_FILE)" | tee -a "$LOG_FILE"
+            echo "❌ rsync password file not found ($RSYNC_PASSWORD_FILE)" | tee -a "$LOG_FILE"
             ERRORS=$((ERRORS+1))
             return 1
         fi
@@ -159,28 +159,28 @@ run_backup() {
         echo "test" > /tmp/.rsync_test_$$
         if ! rsync --password-file="$RSYNC_PASSWORD_FILE" --timeout=10 \
             /tmp/.rsync_test_$$ "${RSYNC_BASE}/.backup_test_$$" > /dev/null 2>&1; then
-            echo "❌ NAS inaccessible via rsync daemon (${RSYNC_HOST}:873)" | tee -a "$LOG_FILE"
+            echo "❌ NAS unreachable via rsync daemon (${RSYNC_HOST}:873)" | tee -a "$LOG_FILE"
             rm -f /tmp/.rsync_test_$$
             ERRORS=$((ERRORS+1))
             return 1
         fi
         rm -f /tmp/.rsync_test_$$
         rm -f /mnt/data/.backup_test_$$ 2>/dev/null || true
-        echo "✅ NAS accessible via rsync daemon (${RSYNC_HOST}:873)" | tee -a "$LOG_FILE"
+        echo "✅ NAS reachable via rsync daemon (${RSYNC_HOST}:873)" | tee -a "$LOG_FILE"
     fi
 
     local skip_compression=false
-    # Utiliser BACKUP_MODE si défini (lecture depuis DB), sinon fallback détection par label
+    # Use BACKUP_MODE if set (read from DB), otherwise fallback to label detection
     if [ -n "$BACKUP_MODE" ]; then
         if [ "$BACKUP_MODE" = "direct" ]; then
             skip_compression=true
-            echo "ℹ️ Mode direct (config DB) pour [$LABEL]" | tee -a "$LOG_FILE"
+            echo "ℹ️ Direct mode (DB config) for [$LABEL]" | tee -a "$LOG_FILE"
         else
-            echo "ℹ️ Mode compression (config DB) pour [$LABEL]" | tee -a "$LOG_FILE"
+            echo "ℹ️ Compression mode (DB config) for [$LABEL]" | tee -a "$LOG_FILE"
         fi
     elif [[ "$LABEL" == *"Jellyfin"* ]] || [[ "$LABEL" == *"Photos"* ]] || [[ "$LABEL" == *"Documents Originaux"* ]]; then
         skip_compression=true
-        echo "ℹ️ Mode direct (détection label) pour [$LABEL]" | tee -a "$LOG_FILE"
+        echo "ℹ️ Direct mode (label detection) for [$LABEL]" | tee -a "$LOG_FILE"
     fi
 
     # === MODE DIRECT ===
@@ -197,27 +197,27 @@ run_backup() {
 
         if [ "$backend" = "rclone" ]; then
             # --- rclone direct sync ---
-            echo "☁️ rclone sync vers $rclone_dest" | tee -a "$LOG_FILE"
+            echo "☁️ rclone sync to $rclone_dest" | tee -a "$LOG_FILE"
 
             RC=1
             for attempt in $(seq 1 $MAX_RETRIES); do
-                [ "$attempt" -gt 1 ] && echo "🔄 Retry $attempt/$MAX_RETRIES pour [$LABEL] (attente ${RETRY_DELAY}s)..." | tee -a "$LOG_FILE" && sleep "$RETRY_DELAY"
+                [ "$attempt" -gt 1 ] && echo "🔄 Retry $attempt/$MAX_RETRIES for [$LABEL] (waiting ${RETRY_DELAY}s)..." | tee -a "$LOG_FILE" && sleep "$RETRY_DELAY"
                 rclone sync "$SRC/" "$rclone_dest/" \
                     --progress --stats-one-line --stats 30s \
                     $RSYNC_EXCLUDES >> "$LOG_FILE" 2>&1 && RC=0 || RC=$?
                 if [ "$RC" -eq 0 ]; then
                     break
                 fi
-                echo "⚠️ Tentative $attempt/$MAX_RETRIES échouée (code: $RC)" | tee -a "$LOG_FILE"
+                echo "⚠️ Attempt $attempt/$MAX_RETRIES failed (code: $RC)" | tee -a "$LOG_FILE"
             done
 
             DUR=$(($(date +%s) - $START_TIME))
 
             if [ "$RC" -eq 0 ]; then
-                echo "✅ Terminé [$LABEL] en ${DUR}s (rclone)" | tee -a "$LOG_FILE"
-                echo "📊 Taille source: ${SIZE_BEFORE} MB" | tee -a "$LOG_FILE"
+                echo "✅ Completed [$LABEL] in ${DUR}s (rclone)" | tee -a "$LOG_FILE"
+                echo "📊 Source size: ${SIZE_BEFORE} MB" | tee -a "$LOG_FILE"
             else
-                echo "❌ Échec [$LABEL] après $MAX_RETRIES tentatives (code: $RC)" | tee -a "$LOG_FILE"
+                echo "❌ Failed [$LABEL] after $MAX_RETRIES attempts (code: $RC)" | tee -a "$LOG_FILE"
                 ERRORS=$((ERRORS+1))
             fi
         else
@@ -227,7 +227,7 @@ run_backup() {
 
             RC=1
             for attempt in $(seq 1 $MAX_RETRIES); do
-                [ "$attempt" -gt 1 ] && echo "🔄 Retry $attempt/$MAX_RETRIES pour [$LABEL] (attente ${RETRY_DELAY}s)..." | tee -a "$LOG_FILE" && sleep "$RETRY_DELAY"
+                [ "$attempt" -gt 1 ] && echo "🔄 Retry $attempt/$MAX_RETRIES for [$LABEL] (waiting ${RETRY_DELAY}s)..." | tee -a "$LOG_FILE" && sleep "$RETRY_DELAY"
                 rsync -av --delete --timeout=300 --password-file="$RSYNC_PASSWORD_FILE" \
                     --no-owner --no-group --chmod=D755,F644 --no-links \
                     --stats --ignore-errors --partial --progress --itemize-changes \
@@ -235,17 +235,17 @@ run_backup() {
                 if [ "$RC" -eq 0 ] || [ "$RC" -eq 23 ] || [ "$RC" -eq 24 ]; then
                     break
                 fi
-                echo "⚠️ Tentative $attempt/$MAX_RETRIES échouée (code: $RC)" | tee -a "$LOG_FILE"
+                echo "⚠️ Attempt $attempt/$MAX_RETRIES failed (code: $RC)" | tee -a "$LOG_FILE"
             done
 
             SIZE_AFTER=$(du -sm "$DEST" 2>/dev/null | cut -f1 || echo "0")
             DUR=$(($(date +%s) - $START_TIME))
 
             if [ "$RC" -eq 0 ] || [ "$RC" -eq 23 ] || [ "$RC" -eq 24 ]; then
-                echo "✅ Terminé [$LABEL] en ${DUR}s" | tee -a "$LOG_FILE"
-                echo "📊 Taille destination: ${SIZE_AFTER} MB" | tee -a "$LOG_FILE"
+                echo "✅ Completed [$LABEL] in ${DUR}s" | tee -a "$LOG_FILE"
+                echo "📊 Destination size: ${SIZE_AFTER} MB" | tee -a "$LOG_FILE"
             else
-                echo "❌ Échec [$LABEL] après $MAX_RETRIES tentatives (code: $RC)" | tee -a "$LOG_FILE"
+                echo "❌ Failed [$LABEL] after $MAX_RETRIES attempts (code: $RC)" | tee -a "$LOG_FILE"
                 ERRORS=$((ERRORS+1))
             fi
         fi
@@ -257,7 +257,7 @@ run_backup() {
         local local_archive_dir="/tmp/backup_archives"
         local local_archive_path="$local_archive_dir/$archive_name"
 
-        echo "📦 Mode compression activé (zstd)" | tee -a "$LOG_FILE"
+        echo "📦 Compression mode enabled (zstd)" | tee -a "$LOG_FILE"
         echo "🗜️ Archive: $archive_name" | tee -a "$LOG_FILE"
 
         if [ "$backend" = "rclone" ]; then
@@ -268,9 +268,9 @@ run_backup() {
             local RSYNC_DEST_DIR=$(to_rsync_dest "$DEST")
             echo "🔗 Destination rsyncd: $RSYNC_DEST_DIR" | tee -a "$LOG_FILE"
 
-            # Nettoyage ancienne archive du jour sur NAS (via NFS)
+            # Remove today's existing archive on NAS (via NFS)
             if [ -f "$DEST/$archive_name" ]; then
-                echo "🗑️ Remplacement du backup existant du jour" | tee -a "$LOG_FILE"
+                echo "🗑️ Replacing today's existing backup" | tee -a "$LOG_FILE"
                 rm -f "$DEST/$archive_name"
             fi
             cleanup_old_archives "$DEST" "$LABEL" "$retention"
@@ -288,30 +288,30 @@ run_backup() {
         done
 
         SIZE_BEFORE=$(du -sm "$SRC" 2>/dev/null | cut -f1 || echo "0")
-        echo "📊 Taille source: ${SIZE_BEFORE} MB" | tee -a "$LOG_FILE"
+        echo "📊 Source size: ${SIZE_BEFORE} MB" | tee -a "$LOG_FILE"
 
-        echo "📋 Copie vers répertoire temporaire..." | tee -a "$LOG_FILE"
+        echo "📋 Copying to temp directory..." | tee -a "$LOG_FILE"
         RC=1
         for attempt in $(seq 1 $MAX_RETRIES); do
-            [ "$attempt" -gt 1 ] && echo "🔄 Retry rsync $attempt/$MAX_RETRIES pour [$LABEL] (attente ${RETRY_DELAY}s)..." | tee -a "$LOG_FILE" && sleep "$RETRY_DELAY"
+            [ "$attempt" -gt 1 ] && echo "🔄 Retry rsync $attempt/$MAX_RETRIES for [$LABEL] (waiting ${RETRY_DELAY}s)..." | tee -a "$LOG_FILE" && sleep "$RETRY_DELAY"
             rsync -av --no-owner --no-group --no-perms --no-links --ignore-errors "${RSYNC_EXCLUDES[@]}" "$SRC/" "$temp_dir/" >> "$LOG_FILE" 2>&1 && RC=0 || RC=$?
             if [ "$RC" -eq 0 ] || [ "$RC" -eq 23 ] || [ "$RC" -eq 24 ]; then
                 break
             fi
-            echo "⚠️ Tentative rsync $attempt/$MAX_RETRIES échouée (code: $RC)" | tee -a "$LOG_FILE"
+            echo "⚠️ rsync attempt $attempt/$MAX_RETRIES failed (code: $RC)" | tee -a "$LOG_FILE"
         done
 
         if [ "$RC" -eq 0 ] || [ "$RC" -eq 23 ] || [ "$RC" -eq 24 ]; then
-            echo "🗜️ Compression zstd en cours..." | tee -a "$LOG_FILE"
+            echo "🗜️ zstd compression in progress..." | tee -a "$LOG_FILE"
 
             ZSTD_RC=1
             for attempt in $(seq 1 $MAX_RETRIES); do
-                [ "$attempt" -gt 1 ] && echo "🔄 Retry compression $attempt/$MAX_RETRIES pour [$LABEL] (attente ${RETRY_DELAY}s)..." | tee -a "$LOG_FILE" && sleep "$RETRY_DELAY" && rm -f "$local_archive_path"
+                [ "$attempt" -gt 1 ] && echo "🔄 Retry compression $attempt/$MAX_RETRIES for [$LABEL] (waiting ${RETRY_DELAY}s)..." | tee -a "$LOG_FILE" && sleep "$RETRY_DELAY" && rm -f "$local_archive_path"
                 tar -cf - -C "$(dirname "$temp_dir")" "$(basename "$temp_dir")" | zstd -3 -o "$local_archive_path" >> "$LOG_FILE" 2>&1 && ZSTD_RC=0 || ZSTD_RC=$?
                 if [ "$ZSTD_RC" -eq 0 ]; then
                     break
                 fi
-                echo "⚠️ Tentative compression $attempt/$MAX_RETRIES échouée (code: $ZSTD_RC)" | tee -a "$LOG_FILE"
+                echo "⚠️ Compression attempt $attempt/$MAX_RETRIES failed (code: $ZSTD_RC)" | tee -a "$LOG_FILE"
             done
 
             if [ "$ZSTD_RC" -eq 0 ]; then
@@ -325,55 +325,55 @@ run_backup() {
                     COMPRESSION_RATIO="0"
                 fi
 
-                # Vérification intégrité locale
-                echo "🔍 Vérification intégrité archive (local)..." | tee -a "$LOG_FILE"
+                # Local integrity check
+                echo "🔍 Archive integrity check (local)..." | tee -a "$LOG_FILE"
                 zstd -t "$local_archive_path" >> "$LOG_FILE" 2>&1 && VERIFY_RC=0 || VERIFY_RC=$?
                 if [ "$VERIFY_RC" -eq 0 ]; then
                     tar -tf "$local_archive_path" > /dev/null 2>&1 && VERIFY_RC=0 || VERIFY_RC=$?
                 fi
 
                 if [ "$VERIFY_RC" -eq 0 ]; then
-                    echo "✅ Archive vérifiée et valide" | tee -a "$LOG_FILE"
+                    echo "✅ Archive verified and valid" | tee -a "$LOG_FILE"
 
                     PUSH_RC=1
                     if [ "$backend" = "rclone" ]; then
                         # --- Push via rclone ---
-                        echo "📤 Envoi vers remote rclone..." | tee -a "$LOG_FILE"
+                        echo "📤 Pushing to rclone remote..." | tee -a "$LOG_FILE"
                         for attempt in $(seq 1 $MAX_RETRIES); do
-                            [ "$attempt" -gt 1 ] && echo "🔄 Retry push $attempt/$MAX_RETRIES pour [$LABEL] (attente ${RETRY_DELAY}s)..." | tee -a "$LOG_FILE" && sleep "$RETRY_DELAY"
+                            [ "$attempt" -gt 1 ] && echo "🔄 Retry push $attempt/$MAX_RETRIES for [$LABEL] (waiting ${RETRY_DELAY}s)..." | tee -a "$LOG_FILE" && sleep "$RETRY_DELAY"
                             rclone copyto "$local_archive_path" "$rclone_dest/$archive_name" \
                                 --progress >> "$LOG_FILE" 2>&1 && PUSH_RC=0 || PUSH_RC=$?
                             if [ "$PUSH_RC" -eq 0 ]; then
                                 break
                             fi
-                            echo "⚠️ Tentative push $attempt/$MAX_RETRIES échouée (code: $PUSH_RC)" | tee -a "$LOG_FILE"
+                            echo "⚠️ Push attempt $attempt/$MAX_RETRIES failed (code: $PUSH_RC)" | tee -a "$LOG_FILE"
                         done
                     else
                         # --- Push via rsyncd ---
-                        echo "📤 Envoi vers NAS via rsyncd..." | tee -a "$LOG_FILE"
+                        echo "📤 Pushing to NAS via rsyncd..." | tee -a "$LOG_FILE"
                         for attempt in $(seq 1 $MAX_RETRIES); do
-                            [ "$attempt" -gt 1 ] && echo "🔄 Retry push $attempt/$MAX_RETRIES pour [$LABEL] (attente ${RETRY_DELAY}s)..." | tee -a "$LOG_FILE" && sleep "$RETRY_DELAY"
+                            [ "$attempt" -gt 1 ] && echo "🔄 Retry push $attempt/$MAX_RETRIES for [$LABEL] (waiting ${RETRY_DELAY}s)..." | tee -a "$LOG_FILE" && sleep "$RETRY_DELAY"
                             rsync -av --timeout=300 --password-file="$RSYNC_PASSWORD_FILE" \
                                 --no-owner --no-group --chmod=F644 \
                                 --progress "$local_archive_path" "$RSYNC_DEST_DIR/$archive_name" >> "$LOG_FILE" 2>&1 && PUSH_RC=0 || PUSH_RC=$?
                             if [ "$PUSH_RC" -eq 0 ] || [ "$PUSH_RC" -eq 23 ]; then
                                 break
                             fi
-                            echo "⚠️ Tentative push $attempt/$MAX_RETRIES échouée (code: $PUSH_RC)" | tee -a "$LOG_FILE"
+                            echo "⚠️ Push attempt $attempt/$MAX_RETRIES failed (code: $PUSH_RC)" | tee -a "$LOG_FILE"
                         done
                     fi
 
                     DUR=$(($(date +%s) - $START_TIME))
 
                     if [ "$PUSH_RC" -eq 0 ] || [ "$PUSH_RC" -eq 23 ]; then
-                        echo "✅ Compression + envoi terminés [$LABEL] en ${DUR}s" | tee -a "$LOG_FILE"
+                        echo "✅ Compression + push completed [$LABEL] in ${DUR}s" | tee -a "$LOG_FILE"
 
-                        echo "📊 Résumé compression [$LABEL]:" | tee -a "$LOG_FILE"
+                        echo "📊 Compression summary [$LABEL]:" | tee -a "$LOG_FILE"
                         echo "  Source: ${SIZE_BEFORE} MB" | tee -a "$LOG_FILE"
-                        echo "  Avant compression: ${SIZE_TEMP} MB" | tee -a "$LOG_FILE"
-                        echo "  Archive finale: ${SIZE_ARCHIVE} MB" | tee -a "$LOG_FILE"
+                        echo "  Before compression: ${SIZE_TEMP} MB" | tee -a "$LOG_FILE"
+                        echo "  Final archive: ${SIZE_ARCHIVE} MB" | tee -a "$LOG_FILE"
                         echo "  Ratio: ${COMPRESSION_RATIO}%" | tee -a "$LOG_FILE"
-                        echo "  Fichiers: ${FILES_COUNT}" | tee -a "$LOG_FILE"
+                        echo "  Files: ${FILES_COUNT}" | tee -a "$LOG_FILE"
 
                         if command -v bc >/dev/null 2>&1; then
                             echo "METRICS:$LABEL:$SIZE_TEMP:$SIZE_ARCHIVE:$COMPRESSION_RATIO:$FILES_COUNT" >> "$LOG_FILE"
@@ -381,23 +381,23 @@ run_backup() {
 
                         echo "Total bytes sent: $(($SIZE_ARCHIVE * 1024 * 1024))" >> "$LOG_FILE"
                     else
-                        echo "❌ Échec envoi [$LABEL] après $MAX_RETRIES tentatives (code: $PUSH_RC)" | tee -a "$LOG_FILE"
+                        echo "❌ Push failed [$LABEL] after $MAX_RETRIES attempts (code: $PUSH_RC)" | tee -a "$LOG_FILE"
                         ERRORS=$((ERRORS+1))
                         echo "Total bytes sent: 0" >> "$LOG_FILE"
                     fi
                 else
-                    echo "❌ ARCHIVE CORROMPUE DÉTECTÉE ! Suppression..." | tee -a "$LOG_FILE"
+                    echo "❌ CORRUPT ARCHIVE DETECTED! Deleting..." | tee -a "$LOG_FILE"
                     rm -f "$local_archive_path"
                     ERRORS=$((ERRORS+1))
                     echo "Total bytes sent: 0" >> "$LOG_FILE"
                 fi
             else
-                echo "❌ Échec compression [$LABEL] (code zstd: $ZSTD_RC)" | tee -a "$LOG_FILE"
+                echo "❌ Compression failed [$LABEL] (zstd code: $ZSTD_RC)" | tee -a "$LOG_FILE"
                 ERRORS=$((ERRORS+1))
                 echo "Total bytes sent: 0" >> "$LOG_FILE"
             fi
         else
-            echo "❌ Échec copie vers temp [$LABEL] (code rsync: $RC)" | tee -a "$LOG_FILE"
+            echo "❌ Copy to temp failed [$LABEL] (rsync code: $RC)" | tee -a "$LOG_FILE"
             ERRORS=$((ERRORS+1))
             echo "Total bytes sent: 0" >> "$LOG_FILE"
         fi
@@ -409,7 +409,7 @@ run_backup() {
 
 ERRORS=0
 
-# Fonction pour lancer un job depuis la config SQLite
+# Run a job from SQLite config
 run_job_from_db() {
     local job_name="$1"
     local row
@@ -417,7 +417,7 @@ run_job_from_db() {
         "SELECT source_path, dest_path, display_name, mode, excludes, retention_count, backend_type, backend_config FROM job_configs WHERE job_name='$job_name' AND enabled=1" 2>/dev/null)
 
     if [ -z "$row" ]; then
-        echo "❌ Job '$job_name' non trouvé ou désactivé dans la DB" | tee -a "$LOG_FILE"
+        echo "❌ Job '$job_name' not found or disabled in DB" | tee -a "$LOG_FILE"
         ERRORS=$((ERRORS+1))
         return 1
     fi
@@ -429,7 +429,7 @@ run_job_from_db() {
     retention_count="${retention_count:-7}"
     backend_type="${backend_type:-rsync}"
 
-    # Construire les arguments d'exclusion depuis le JSON
+    # Build exclude arguments from JSON
     local exclude_args=()
     if [ -n "$excludes_json" ] && [ "$excludes_json" != "[]" ]; then
         local excludes_list
@@ -442,14 +442,14 @@ run_job_from_db() {
         done <<< "$excludes_list"
     fi
 
-    # Mode compression/direct
+    # Compression/direct mode
     if [ "$mode" = "direct" ]; then
         export BACKUP_MODE="direct"
     else
         export BACKUP_MODE="compression"
     fi
 
-    # Rétention
+    # Retention
     export RETENTION_COUNT="$retention_count"
 
     # Backend type + rclone config
@@ -468,51 +468,8 @@ run_job_from_db() {
     unset BACKUP_MODE RETENTION_COUNT BACKEND_TYPE RCLONE_REMOTE RCLONE_DEST_PATH
 }
 
-case "$1" in
-  all|"")
-    echo "🚀 Lancement parallèle optimisé (lecture DB)"
-
-    # GROUPE 1: Jobs légers en PARALLÈLE
-    echo "📦 Groupe 1: Jobs légers (parallèle)..."
-    LIGHT_TASKS=$(sqlite3 -cmd '.timeout 5000' "$DB_PATH" "SELECT job_name FROM job_configs WHERE run_group='light' AND enabled=1 ORDER BY run_order")
-    for task in $LIGHT_TASKS; do
-        curl -s "http://localhost:9895/run?job=${task}" > /dev/null &
-    done
-    wait
-    echo "  ✅ Groupe 1 terminé"
-
-    # GROUPE 2: Jobs moyens en PARALLÈLE
-    echo "📦 Groupe 2: Jobs moyens (parallèle)..."
-    MEDIUM_TASKS=$(sqlite3 -cmd '.timeout 5000' "$DB_PATH" "SELECT job_name FROM job_configs WHERE run_group='medium' AND enabled=1 ORDER BY run_order")
-    for task in $MEDIUM_TASKS; do
-        curl -s "http://localhost:9895/run?job=${task}" > /dev/null &
-    done
-    wait
-    echo "  ✅ Groupe 2 terminé"
-
-    # GROUPE 3: Jobs lourds en SÉQUENTIEL
-    echo "📦 Groupe 3: Jobs lourds (séquentiel)..."
-    HEAVY_TASKS=$(sqlite3 -cmd '.timeout 5000' "$DB_PATH" "SELECT job_name FROM job_configs WHERE run_group='heavy' AND enabled=1 ORDER BY run_order")
-    for task in $HEAVY_TASKS; do
-        echo "  ▶️ $task"
-        curl -s "http://localhost:9895/run?job=${task}" > /dev/null
-
-        while pgrep -f "backup.sh $task" > /dev/null; do
-            sleep 10
-        done
-
-        echo "    ✅ Terminé"
-    done
-
-    echo "🏁 Tous les backups terminés"
-    exit 0
-    ;;
-
-  *)
-    # Job individuel : lecture depuis DB
-    run_job_from_db "$1"
-    ;;
-esac
+# Individual job: read from DB
+run_job_from_db "$1"
 
 END=$(date +%s)
 TOTAL=$((END - start))
@@ -520,11 +477,11 @@ TOTAL=$((END - start))
 echo "" | tee -a "$LOG_FILE"
 echo "===============================" | tee -a "$LOG_FILE"
 if [ "$ERRORS" -eq 0 ]; then
-  echo "🟢 Tous les backups terminés avec succès" | tee -a "$LOG_FILE"
+  echo "🟢 All backups completed successfully" | tee -a "$LOG_FILE"
 else
-  echo "🔴 $ERRORS tâche(s) ont échoué" | tee -a "$LOG_FILE"
+  echo "🔴 $ERRORS task(s) failed" | tee -a "$LOG_FILE"
 fi
 
-echo "🕒 Durée totale : ${TOTAL}s" | tee -a "$LOG_FILE"
+echo "🕒 Total duration: ${TOTAL}s" | tee -a "$LOG_FILE"
 
 exit "$ERRORS"
