@@ -45,12 +45,12 @@ Edit `docker-compose.standalone.yml` to expose the directories you want to back 
 ```yaml
 volumes:
   - ./data:/app/logs
-  - /path/to/myapp:/data/myapp:ro        # your source directory
-  - /path/to/another:/data/another:ro     # add as many as needed
+  - /path/to/myapp:/data/myapp            # your source directory
+  - /path/to/another:/data/another        # add as many as needed
   - /tmp/restore:/tmp/restore
 ```
 
-> Directories are mounted under `/data/` inside the container. Use **read-only** (`:ro`) unless you need restore capability.
+> Directories are mounted under `/data/` inside the container. Add `:ro` (read-only) if you don't need restore capability back to the source.
 
 ### 2. Choose a backend
 
