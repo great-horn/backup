@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backups</title>
+
+    <!-- Socket.IO -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <!-- Vue.js 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Lora:wght@400;500;600;700&family=Quicksand:wght@300;400;500;600;700&family=Share+Tech+Mono&family=Space+Mono:wght@400;700&family=Urbanist:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Shared CSS -->
+    <link rel="stylesheet" href="/shared/css/tailwind.css">
+    <link rel="stylesheet" href="/shared/css/themes.css">
+    <link rel="stylesheet" href="/shared/css/layout.css">
+    <link rel="stylesheet" href="/shared/css/components.css">
+    <link rel="stylesheet" href="/shared/css/animations.css">
+    <script src="/shared/js/common.js"></script>
+    <script src="/shared/js/animations.js"></script>
+
+    <style>
+        /* Backup-specific overrides */
+        .main-content {
+            min-width: 0;
+        }
+
+        /* Dashboard Services section */
+        .backup-dashboard-section {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 24px;
+            transition: all 0.3s;
+        }
+
+        .backup-dashboard-title {
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 20px;
+        }
+
+        .backup-dashboard-muted {
+            color: var(--text-secondary);
+        }
+
+        .backup-services-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+        @media (min-width: 640px) { .backup-services-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (min-width: 768px) { .backup-services-grid { grid-template-columns: repeat(4, 1fr); } }
+        @media (min-width: 1024px) { .backup-services-grid { grid-template-columns: repeat(6, 1fr); } }
+
+        .backup-service-card {
+            background: var(--bg-tertiary);
+            border: 2px solid var(--border-color, var(--border));
+            border-radius: 12px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-height: 120px;
+            text-align: center;
+            position: relative;
+        }
+
+        .backup-service-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--accent-blue);
+            box-shadow: 0 4px 12px var(--shadow, rgba(0,0,0,0.15));
+        }
+
+        .backup-status-dot {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 2px solid var(--bg-tertiary);
+        }
+
+        .backup-service-icon {
+            width: 40px;
+            height: 40px;
+        }
+
+        .backup-service-name {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 0.875rem;
+        }
+
+        .backup-service-date {
+            position: absolute;
+            bottom: 8px;
+            left: 8px;
+            right: 8px;
+            font-size: 10px;
+            color: var(--text-secondary);
+            font-weight: 400;
+            text-align: center;
+        }
+
+        /* Spinner variants */
+        [data-theme="dark"] .spinner,
+        [data-theme="oled"] .spinner,
+        [data-theme="neon"] .spinner,
+        [data-theme="ember"] .spinner {
+            border-color: var(--border-color, #374151);
+            border-top-color: var(--accent-blue, #60a5fa);
+        }
+        .spinner-sm {
+            width: 24px; height: 24px; border-width: 2px;
+        }
+
+        /* flash-success/error + .success-flash/.error-flash → shared/css/animations.css */
+
+        /* Icon filters for light mode */
+        [data-theme="light"] img[src*="-light.svg"] {
+            filter: invert(1);
+        }
+
+        /* Sidebar overlay z-index override */
+        .sidebar-overlay {
+            z-index: 98;
+        }
+
+        /* Log viewer */
+        .log-viewer {
+            background: #111827;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            font-family: monospace;
+            font-size: 0.75rem;
+            line-height: 1.6;
+            color: #4ade80;
+            max-height: 500px;
+            overflow: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        /* === Generic Backup Page Classes === */
+
+        /* Section container (replaces bg-white dark:bg-gray-800) */
+        .backup-section {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            transition: background 0.3s;
+        }
+
+        /* Inner card (replaces bg-gray-50 dark:bg-gray-700 + border) */
+        .backup-card {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            transition: all 0.2s;
+        }
+
+        .backup-card-interactive {
+            cursor: pointer;
+        }
+        .backup-card-interactive:hover {
+            background: color-mix(in srgb, var(--bg-tertiary) 85%, var(--text-primary) 5%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        /* Text colors */
+        .backup-text { color: var(--text-primary); }
+        .backup-text-muted { color: var(--text-secondary); }
+
+        /* Border utility */
+        .backup-border { border-color: var(--border-color); }
+
+        /* Form inputs & selects */
+        .backup-input {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 0.875rem;
+            outline: none;
+            transition: all 0.2s;
+        }
+        .backup-input:focus {
+            box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-blue) 40%, transparent);
+            border-color: var(--accent-blue);
+        }
+        .backup-input::placeholder { color: var(--text-secondary); opacity: 0.6; }
+
+        /* Buttons */
+        .backup-btn-primary {
+            background: var(--accent-blue);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .backup-btn-primary:hover { filter: brightness(1.1); transform: translateY(-2px); }
+
+        .backup-btn-secondary {
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            background: transparent;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .backup-btn-secondary:hover { background: var(--bg-tertiary); }
+
+        .backup-btn-small {
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .backup-btn-small:hover { filter: brightness(1.15); }
+
+        /* Close button (modals) */
+        .backup-close-btn {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            padding: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .backup-close-btn:hover { filter: brightness(1.1); }
+
+        /* Table */
+        .backup-table-header {
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+        }
+        .backup-table-row {
+            border-bottom: 1px solid var(--border-color);
+            transition: background 0.2s;
+        }
+        .backup-table-row:hover {
+            background: color-mix(in srgb, var(--bg-tertiary) 50%, transparent);
+        }
+
+        /* Status badges */
+        .backup-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .backup-badge-success { background: color-mix(in srgb, var(--accent-green) 15%, transparent); color: var(--accent-green); border: 1px solid color-mix(in srgb, var(--accent-green) 30%, transparent); }
+        .backup-badge-warning { background: color-mix(in srgb, var(--accent-yellow) 15%, transparent); color: var(--accent-yellow); border: 1px solid color-mix(in srgb, var(--accent-yellow) 30%, transparent); }
+        .backup-badge-error { background: color-mix(in srgb, var(--accent-red) 15%, transparent); color: var(--accent-red); border: 1px solid color-mix(in srgb, var(--accent-red) 30%, transparent); }
+        .backup-badge-default { background: var(--bg-tertiary); color: var(--text-secondary); border: 1px solid var(--border-color); }
+
+        /* Mode/label tags (inline) */
+        .backup-tag { padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 500; }
+        .backup-tag-blue { background: color-mix(in srgb, var(--accent-blue) 15%, transparent); color: var(--accent-blue); }
+        .backup-tag-green { background: color-mix(in srgb, var(--accent-green) 15%, transparent); color: var(--accent-green); }
+        .backup-tag-gray { background: var(--bg-tertiary); color: var(--text-secondary); }
+
+        /* Progress indicators */
+        .backup-progress { padding: 16px; border-radius: 8px; }
+        .backup-progress-success { background: color-mix(in srgb, var(--accent-green) 10%, transparent); border: 1px solid color-mix(in srgb, var(--accent-green) 30%, transparent); }
+        .backup-progress-error { background: color-mix(in srgb, var(--accent-red) 10%, transparent); border: 1px solid color-mix(in srgb, var(--accent-red) 30%, transparent); }
+        .backup-progress-running { background: color-mix(in srgb, var(--accent-blue) 10%, transparent); border: 1px solid color-mix(in srgb, var(--accent-blue) 30%, transparent); }
+        .backup-progress-text-success { color: var(--accent-green); }
+        .backup-progress-text-error { color: var(--accent-red); }
+        .backup-progress-text-running { color: var(--accent-blue); }
+
+        /* Anomaly card (JS-generated HTML) */
+        .backup-anomaly-card {
+            padding: 12px;
+            margin-bottom: 12px;
+            border-radius: 8px;
+            border-left: 4px solid var(--accent-yellow);
+            background: var(--bg-tertiary);
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        /* Storage stat cards (JS-generated HTML) */
+        .backup-storage-stat {
+            text-align: center;
+            padding: 12px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+        }
+
+        /* Count badge */
+        .backup-count-badge {
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+        }
+
+        /* Modal */
+        .backup-modal {
+            background: var(--bg-secondary);
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+        }
+        .backup-modal-header {
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+        }
+        .backup-modal-footer {
+            border-top: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+        }
+
+        /* Success bar (used in services table) */
+        .backup-success-bar-bg {
+            background: color-mix(in srgb, var(--text-secondary) 20%, transparent);
+        }
+
+        /* Responsive log items */
+        @media (max-width: 768px) {
+            .log-item-container {
+                flex-direction: column !important;
+                align-items: flex-start !important;
+                gap: 0.75rem !important;
+            }
+            .log-item-info { width: 100%; }
+            .log-item-meta { width: 100%; justify-content: space-between !important; }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex transition-colors duration-300">
+    <div id="app"></div>
+    <script type="module" src="/static/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+services:
+  backup:
+    build: .
+    container_name: backup
+    restart: unless-stopped
+    ports:
+      - "${PORT:-9895}:${PORT:-9895}"
+    env_file:
+      - .env
+    volumes:
+      # Application data (database + logs)
+      - ./data:/app/logs
+
+      # Source directories to back up (adjust to your setup)
+      # - /path/to/your/docker/data:/data:rw
+
+      # NFS mount for NAS read access (optional, for restore/browse)
+      # - nfs-data:/mnt/data:ro
+
+      # rsync password file (create with: echo "yourpassword" > rsync.secret && chmod 600 rsync.secret)
+      # - ./rsync.secret:/app/rsync.secret:ro
+
+      # rclone config (optional, for rclone backend)
+      # - ./rclone.conf:/app/rclone.conf:ro
+
+      # Restore temp directory
+      - /tmp/restore:/tmp/restore
+
+# Optional NFS volume (uncomment if using NAS)
+# volumes:
+#   nfs-data:
+#     driver: local
+#     driver_opts:
+#       type: nfs
+#       o: addr=192.168.0.100,nfsvers=4,soft,timeo=100,retrans=3
+#       device: ":/volume/data"

@@ -1,0 +1,8 @@
+flask==3.0.3
+flask-socketio==5.3.7
+python-socketio==5.11.4
+python-engineio==4.9.1
+pytz
+requests
+apscheduler
+zstandard

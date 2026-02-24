@@ -1,0 +1,219 @@
+/* Layout — Shared layout primitives for all custom apps */
+/* Loaded after tailwind.css, before app-specific styles */
+
+/* Box-sizing reset */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+:root {
+    --sidebar-width: 280px;
+}
+
+/* Body base — themes.css sets background + color */
+body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: var(--font-primary);
+}
+
+/* Fix themes.css display:flex on body */
+#app {
+    width: 100%;
+}
+
+/* App container (centered content wrapper) */
+.container {
+    max-width: 1536px;
+    margin: 0 auto;
+}
+
+/* ==========================================
+   Sidebar base layout
+   ========================================== */
+.sidebar {
+    width: var(--sidebar-width);
+    min-width: var(--sidebar-width);
+    height: 100vh;
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    overflow-y: auto;
+    z-index: 50;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border, var(--border-color, #e2e8f0));
+    transition: transform 0.3s ease;
+}
+
+/* Sidebar scrollbar (thin & discreet) */
+.sidebar::-webkit-scrollbar { width: 6px; }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ==========================================
+   Main content
+   ========================================== */
+.main-content {
+    margin-left: var(--sidebar-width);
+    flex: 1;
+    padding: 1.5rem;
+    min-height: 100vh;
+    transition: margin-left 0.3s ease;
+}
+
+/* ==========================================
+   Spinner animation
+   ========================================== */
+.spinner {
+    border: 3px solid var(--border-color, #e5e7eb);
+    border-top: 3px solid var(--accent-blue);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+}
+
+.loading-spinner {
+    display: inline-block;
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--border, var(--border-color, #e5e7eb));
+    border-top-color: var(--accent-blue);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ==========================================
+   Toggle switch
+   ========================================== */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #374151;
+    border-radius: 24px;
+    transition: 0.3s;
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    border-radius: 50%;
+    transition: 0.3s;
+}
+
+input:checked + .toggle-slider {
+    background-color: var(--accent-blue);
+}
+
+input:checked + .toggle-slider:before {
+    transform: translateX(20px);
+}
+
+/* ==========================================
+   Mobile menu button
+   ========================================== */
+.mobile-menu-btn,
+.mobile-menu-toggle {
+    display: none;
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
+    z-index: 1025;
+    background: var(--accent-blue);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    width: 44px;
+    height: 44px;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* ==========================================
+   Sidebar overlay (mobile backdrop)
+   ========================================== */
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1010;
+}
+
+.sidebar-overlay.active {
+    display: block;
+}
+
+/* Force-hide overlay on desktop */
+@media (min-width: 1025px) {
+    .sidebar-overlay {
+        display: none !important;
+    }
+}
+
+/* ==========================================
+   Responsive — breakpoint 1024px
+   ========================================== */
+@media (max-width: 1024px) {
+    .mobile-menu-btn,
+    .mobile-menu-toggle {
+        display: flex;
+    }
+
+    .sidebar {
+        transform: translateX(-100%);
+        z-index: 1020;
+    }
+
+    .sidebar.mobile-open {
+        transform: translateX(0);
+    }
+
+    .main-content {
+        margin-left: 0;
+        width: 100%;
+        max-width: 100%;
+        padding: 1rem;
+        padding-top: 4rem;
+    }
+}
+
+/* ==========================================
+   OLED sidebar icon filter
+   ========================================== */
+body.oled-mode img.sidebar-logo {
+    filter: brightness(1.2) contrast(1.1);
+}

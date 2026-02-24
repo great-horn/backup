@@ -1,0 +1,18 @@
+# Exclure les logs et données
+logs/
+*.log
+
+# Exclure les fichiers temporaires
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+__pycache__
+*.pyc
+
+# Exclure git
+.git/
+.gitignore
+
+# Exclure README si présent
+README.md

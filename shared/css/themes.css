@@ -1,0 +1,218 @@
+/* Theme Styles — 5 Themes via CSS Variables */
+/* Loaded after tailwind.css */
+
+/* ==========================================
+   Base / "Azure" — Blue light theme (default CSS)
+   Also used when data-theme="dark" (legacy key)
+   ========================================== */
+:root {
+    --font-primary: 'Urbanist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+    --bg-primary: #f0f4f8;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #e2e8f0;
+    --text-primary: #1e293b;
+    --text-secondary: #475569;
+    --text-muted: #94a3b8;
+    --accent-blue: #3b82f6;
+    --accent-purple: #8b5cf6;
+    --accent-green: #22c55e;
+    --accent-yellow: #eab308;
+    --accent-red: #ef4444;
+    --border: #cbd5e1;
+    --border-color: #cbd5e1;
+    --shadow: rgba(0, 0, 0, 0.08);
+    --gradient-start: #3b82f6;
+    --gradient-end: #8b5cf6;
+    /* App aliases */
+    --accent-primary: var(--accent-blue);
+    --accent-secondary: var(--accent-blue);
+    --stat-gradient-1: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-purple) 100%);
+    --stat-gradient-2: linear-gradient(135deg, var(--accent-green) 0%, color-mix(in srgb, var(--accent-green) 80%, #000) 100%);
+    --stat-gradient-3: linear-gradient(135deg, var(--accent-purple) 0%, color-mix(in srgb, var(--accent-purple) 80%, #000) 100%);
+    --stat-gradient-4: linear-gradient(135deg, var(--accent-yellow) 0%, color-mix(in srgb, var(--accent-yellow) 80%, #000) 100%);
+}
+
+/* ==========================================
+   Light — "Daylight"
+   ========================================== */
+[data-theme="light"] {
+    --font-primary: 'Quicksand', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --bg-primary: #f8f9fb;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #eef0f4;
+    --text-primary: #12141a;
+    --text-secondary: #505672;
+    --text-muted: #8289a1;
+    --accent-blue: #059669;
+    --accent-purple: #0d9488;
+    --accent-green: #22c55e;
+    --accent-yellow: #d97706;
+    --accent-red: #e53e5f;
+    --border: #e0e3ea;
+    --border-color: #e0e3ea;
+    --shadow: rgba(0, 0, 0, 0.08);
+    --gradient-start: #059669;
+    --gradient-end: #0d9488;
+}
+
+/* ==========================================
+   OLED — "Void"
+   ========================================== */
+[data-theme="oled"] {
+    --font-primary: 'Space Mono', 'JetBrains Mono', ui-monospace, monospace;
+    --bg-primary: #000000;
+    --bg-secondary: #080a10;
+    --bg-tertiary: #10131c;
+    --text-primary: #eaecf4;
+    --text-secondary: #a0a6be;
+    --text-muted: #6a7190;
+    --accent-blue: #ef4444;
+    --accent-purple: #f97316;
+    --accent-green: #5aef90;
+    --accent-yellow: #fcd34d;
+    --accent-red: #fb923c;
+    --border: #1a1e2c;
+    --border-color: #1a1e2c;
+    --shadow: rgba(255, 255, 255, 0.03);
+    --gradient-start: #ef4444;
+    --gradient-end: #f97316;
+}
+
+/* ==========================================
+   Neon — "Cyberpunk"
+   ========================================== */
+[data-theme="neon"] {
+    --font-primary: 'Space Mono', 'JetBrains Mono', ui-monospace, monospace;
+    --bg-primary: #0a0a12;
+    --bg-secondary: #12121f;
+    --bg-tertiary: #1a1a2e;
+    --text-primary: #e0e0ff;
+    --text-secondary: #9090c0;
+    --text-muted: #5858a0;
+    --accent-blue: #00d4ff;
+    --accent-purple: #bf00ff;
+    --accent-green: #00ff88;
+    --accent-yellow: #ffe600;
+    --accent-red: #ff2266;
+    --border: #1e1e3a;
+    --border-color: #1e1e3a;
+    --shadow: rgba(0, 0, 0, 0.3);
+    --gradient-start: #00d4ff;
+    --gradient-end: #bf00ff;
+}
+
+/* ==========================================
+   Ember — "Hearth"
+   ========================================== */
+[data-theme="ember"] {
+    --font-primary: 'Lora', Georgia, 'Times New Roman', Times, serif;
+    --bg-primary: #151210;
+    --bg-secondary: #1e1a16;
+    --bg-tertiary: #2a2420;
+    --text-primary: #f0ebe4;
+    --text-secondary: #b5a899;
+    --text-muted: #7a7068;
+    --accent-blue: #e8a838;
+    --accent-purple: #d97757;
+    --accent-green: #7bb86f;
+    --accent-yellow: #e8a838;
+    --accent-red: #e5534b;
+    --border: #332c26;
+    --border-color: #332c26;
+    --shadow: rgba(0, 0, 0, 0.25);
+    --gradient-start: #e8a838;
+    --gradient-end: #d97757;
+}
+
+/* ==========================================
+   Dark-mode shared overrides
+   (OLED, Neon, Ember inherit dark behavior)
+   ========================================== */
+
+/* Body background */
+body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+/* Dark mode: date picker indicator invert */
+[data-theme="oled"] input[type="date"]::-webkit-calendar-picker-indicator,
+[data-theme="neon"] input[type="date"]::-webkit-calendar-picker-indicator,
+[data-theme="ember"] input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); }
+
+/* Dark mode: select option backgrounds (Firefox) */
+select option {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+/* OLED-specific overrides */
+.oled-mode .sidebar,
+.oled-mode aside {
+    background-color: #000000 !important;
+}
+
+.oled-mode input:not([type="range"]),
+.oled-mode select,
+.oled-mode textarea {
+    background-color: #080a10 !important;
+    border-color: #1a1e2c !important;
+}
+
+.oled-mode input:not([type="range"]):focus,
+.oled-mode select:focus,
+.oled-mode textarea:focus {
+    border-color: var(--accent-blue) !important;
+}
+
+/* OLED scrollbar */
+.oled-mode ::-webkit-scrollbar { width: 8px; height: 8px; }
+.oled-mode ::-webkit-scrollbar-track { background: #000000; }
+.oled-mode ::-webkit-scrollbar-thumb { background: #222230; border-radius: 4px; }
+.oled-mode ::-webkit-scrollbar-thumb:hover { background: #333345; }
+
+/* OLED modal overlays */
+.oled-mode .bg-black\/50 { background-color: rgba(0, 0, 0, 0.85) !important; }
+
+/* OLED tables */
+.oled-mode table, .oled-mode th, .oled-mode td { border-color: #1a1e2c !important; }
+.oled-mode tr:hover { background-color: #080a10 !important; }
+
+/* OLED code blocks */
+.oled-mode pre, .oled-mode code { background-color: #080a10 !important; }
+
+/* OLED toast */
+.oled-mode #toast-notification { box-shadow: 0 4px 12px rgba(255, 255, 255, 0.1); }
+
+/* Neon glow effects */
+.neon-mode .sidebar-app-name {
+    text-shadow: 0 0 20px rgba(0, 212, 255, 0.4);
+}
+
+.neon-mode .nav-item.active,
+.neon-mode .nav-link-active {
+    box-shadow: 0 0 12px rgba(0, 212, 255, 0.2);
+}
+
+/* Ember warm feel */
+.ember-mode .sidebar-app-name {
+    text-shadow: 0 0 20px rgba(232, 168, 56, 0.3);
+}
+
+/* ==========================================
+   Highlight (<mark>) — theme-aware
+   ========================================== */
+mark {
+    background: #fef08a;
+    color: #1e293b;
+    padding: 0 2px;
+    border-radius: 2px;
+}
+
+[data-theme="oled"] mark,
+[data-theme="neon"] mark,
+[data-theme="ember"] mark {
+    background: #854d0e;
+    color: #fef3c7;
+}

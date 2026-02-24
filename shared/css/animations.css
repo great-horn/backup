@@ -1,0 +1,345 @@
+/* Animations — Shared entrance & micro-interaction system */
+/* Loaded after components.css, before app-specific styles */
+
+/* ==========================================
+   Entrance animations (keyframes)
+   ========================================== */
+
+@keyframes fadeUp {
+    from {
+        opacity: 0;
+        transform: translateY(16px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideInLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.92);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* ==========================================
+   Staggered entrance classes
+   Applied automatically by animations.js
+   ========================================== */
+
+.anim-ready {
+    opacity: 0;
+}
+
+.anim-in {
+    animation-duration: 0.4s;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    animation-fill-mode: both;
+}
+
+/* Animation types */
+.anim-fade-up { animation-name: fadeUp; }
+.anim-fade-in { animation-name: fadeIn; }
+.anim-slide-left { animation-name: slideInLeft; }
+.anim-slide-right { animation-name: slideInRight; }
+.anim-scale-in { animation-name: scaleIn; }
+
+/* Default: fade-up */
+.anim-in:not(.anim-fade-in):not(.anim-slide-left):not(.anim-slide-right):not(.anim-scale-in) {
+    animation-name: fadeUp;
+}
+
+/* Stagger delays (auto-applied by JS via --delay custom property) */
+.anim-in {
+    animation-delay: var(--anim-delay, 0ms);
+}
+
+/* ==========================================
+   Flash feedback (success/error)
+   ========================================== */
+
+@keyframes flash-success {
+    0%, 100% { background-color: transparent; }
+    50% { background-color: var(--accent-green); border-color: var(--accent-green); }
+}
+
+@keyframes flash-error {
+    0%, 100% { background-color: transparent; }
+    50% { background-color: var(--accent-red); border-color: var(--accent-red); }
+}
+
+.success-flash { animation: flash-success 0.5s ease; }
+.error-flash { animation: flash-error 0.5s ease; }
+
+/* ==========================================
+   Skeleton / Pulse loading
+   ========================================== */
+
+@keyframes shimmer {
+    0% {
+        background-position: -400px 0;
+    }
+    100% {
+        background-position: 400px 0;
+    }
+}
+
+.skeleton {
+    background: linear-gradient(
+        90deg,
+        var(--bg-tertiary) 0%,
+        color-mix(in srgb, var(--bg-tertiary) 60%, var(--bg-secondary)) 40%,
+        var(--bg-tertiary) 80%
+    );
+    background-size: 800px 100%;
+    animation: shimmer 1.6s ease-in-out infinite;
+    border-radius: 6px;
+}
+
+.skeleton-text {
+    height: 14px;
+    margin-bottom: 8px;
+    width: 80%;
+}
+
+.skeleton-text:last-child {
+    width: 55%;
+}
+
+.skeleton-title {
+    height: 22px;
+    width: 60%;
+    margin-bottom: 12px;
+}
+
+.skeleton-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+}
+
+.skeleton-card {
+    height: 120px;
+}
+
+.skeleton-img {
+    aspect-ratio: 1;
+    width: 100%;
+}
+
+/* ==========================================
+   Unified hover effects
+   ========================================== */
+
+.hover-lift {
+    transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+                box-shadow 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hover-lift:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 28px -4px var(--shadow, rgba(0, 0, 0, 0.15));
+}
+
+.hover-lift:active {
+    transform: translateY(-1px);
+    transition-duration: 0.1s;
+}
+
+.hover-glow {
+    transition: box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.hover-glow:hover {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-blue) 20%, transparent);
+    border-color: var(--accent-blue);
+}
+
+.hover-scale {
+    transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hover-scale:hover {
+    transform: scale(1.03);
+}
+
+.hover-scale:active {
+    transform: scale(0.98);
+}
+
+/* ==========================================
+   Toast notifications (improved)
+   ========================================== */
+
+@keyframes toastIn {
+    from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes toastOut {
+    from {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.96);
+    }
+}
+
+.toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.toast {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 18px;
+    border-radius: 10px;
+    font-size: 0.9em;
+    font-weight: 500;
+    color: #fff;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.06) inset;
+    animation: toastIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+    max-width: 380px;
+}
+
+.toast.toast-exit {
+    animation: toastOut 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.toast-success {
+    background: rgba(16, 185, 129, 0.88);
+}
+
+.toast-error {
+    background: rgba(239, 68, 68, 0.88);
+}
+
+.toast-warning {
+    background: rgba(245, 158, 11, 0.88);
+}
+
+.toast-info {
+    background: color-mix(in srgb, var(--accent-blue) 88%, transparent);
+}
+
+.toast-icon {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+}
+
+.toast-message {
+    flex: 1;
+    line-height: 1.4;
+}
+
+/* ==========================================
+   Page transition
+   ========================================== */
+
+.view-enter {
+    animation: fadeUp 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ==========================================
+   Responsive toast
+   ========================================== */
+
+@media (max-width: 480px) {
+    .toast-container {
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+    }
+
+    .toast {
+        max-width: 100%;
+    }
+}
+
+/* ==========================================
+   Reduced motion
+   ========================================== */
+
+@media (prefers-reduced-motion: reduce) {
+    .anim-in,
+    .anim-ready,
+    .toast,
+    .toast.toast-exit,
+    .view-enter {
+        animation: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+    }
+
+    .hover-lift:hover,
+    .hover-scale:hover {
+        transform: none;
+    }
+
+    .skeleton {
+        animation: none;
+    }
+}

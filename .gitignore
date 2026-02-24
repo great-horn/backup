@@ -1,0 +1,37 @@
+# Environment
+.env
+
+# Database & logs
+data/
+logs/
+*.db
+*.db-wal
+*.db-shm
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# rclone config (may contain credentials)
+rclone.conf
+
+# rsync secrets
+rsync.secret
+
+# Claude Code
+.claude/
+CLAUDE.md
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
